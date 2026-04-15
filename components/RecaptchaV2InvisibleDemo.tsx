@@ -2,6 +2,7 @@
 
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
+import { submitDemoForm } from "@/lib/recaptcha/submitDemoForm";
 
 const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_V2_INVISIBLE_SITE_KEY ?? "";
 
@@ -11,8 +12,17 @@ export function RecaptchaV2InvisibleDemo() {
   const submitRequestedRef = useRef(false);
 
   const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [message, setMessage] = useState("");
   const [result, setResult] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const messageRef = useRef("");
+
+  useEffect(() => {
+    if (window.grecaptcha) {
+      setScriptLoaded(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (!scriptLoaded || !containerRef.current || !window.grecaptcha) {
@@ -33,7 +43,6 @@ export function RecaptchaV2InvisibleDemo() {
       }
 
       if (typeof window.grecaptcha.render !== "function") {
-        console.error("grecaptcha.render is unavailable", window.grecaptcha);
         setResult("grecaptcha.render is unavailable");
         return;
       }
@@ -50,24 +59,14 @@ export function RecaptchaV2InvisibleDemo() {
           setResult("");
 
           try {
-            const response = await fetch("/api/recaptcha/verify", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                version: "v2-invisible",
-                token,
-              }),
+            const data = await submitDemoForm({
+              message: messageRef.current,
+              token,
+              version: "v2-invisible",
             });
 
-            const data = (await response.json()) as {
-              success: boolean;
-              message: string;
-              googleResult?: unknown;
-            };
-
             setResult(JSON.stringify(data, null, 2));
+            setMessage("");
           } catch (error) {
             console.error(error);
             setResult("Request failed");
@@ -98,6 +97,11 @@ export function RecaptchaV2InvisibleDemo() {
 
   const handleSubmit: React.SubmitEventHandler<HTMLFormElement> = (event) => {
     event.preventDefault();
+
+    if (!message.trim()) {
+      setResult("Please enter a message");
+      return;
+    }
 
     if (!window.grecaptcha || widgetIdRef.current === null) {
       setResult("reCAPTCHA is not ready yet");
@@ -133,20 +137,25 @@ export function RecaptchaV2InvisibleDemo() {
       <Script
         src="https://www.google.com/recaptcha/api.js?render=explicit"
         strategy="afterInteractive"
-        onLoad={() => setScriptLoaded(true)}
+        onReady={() => setScriptLoaded(true)}
       />
 
       <form onSubmit={handleSubmit} className="flex max-w-xl flex-col gap-4">
         <h2 className="text-2xl font-semibold">reCAPTCHA v2 invisible demo</h2>
 
         <p className="text-sm text-gray-600">
-          Clicking the button triggers invisible reCAPTCHA. Google may return a
-          token immediately or show a challenge only when needed.
+          Submit the form. Invisible reCAPTCHA will run automatically.
         </p>
 
         <input
           type="text"
-          placeholder="Type something to simulate a form"
+          value={message}
+          onChange={(event) => {
+            const value = event.currentTarget.value;
+            setMessage(value);
+            messageRef.current = value;
+          }}
+          placeholder="Enter your message"
           className="rounded border px-3 py-2"
         />
 
@@ -157,7 +166,7 @@ export function RecaptchaV2InvisibleDemo() {
           disabled={isSubmitting || !scriptLoaded}
           className="w-fit rounded bg-black px-4 py-2 text-white disabled:opacity-50"
         >
-          {isSubmitting ? "Verifying..." : "Submit with invisible v2"}
+          {isSubmitting ? "Submitting..." : "Submit with invisible v2"}
         </button>
 
         {result ? (

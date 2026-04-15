@@ -1,15 +1,23 @@
 "use client";
 
 import Script from "next/script";
-import { SubmitEvent, useState } from "react";
+import { useEffect, useState } from "react";
+import { submitDemoForm } from "@/lib/recaptcha/submitDemoForm";
 
 const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_V3_SITE_KEY ?? "";
-const actionName = "submit";
+const actionName = "submit_form";
 
 export function RecaptchaV3Demo() {
   const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [message, setMessage] = useState("");
   const [result, setResult] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (window.grecaptcha) {
+      setScriptLoaded(true);
+    }
+  }, []);
 
   async function getV3Token(): Promise<string> {
     if (!window.grecaptcha) {
@@ -36,8 +44,15 @@ export function RecaptchaV3Demo() {
     });
   }
 
-  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+  const handleSubmit: React.SubmitEventHandler<HTMLFormElement> = async (
+    event,
+  ) => {
     event.preventDefault();
+
+    if (!message.trim()) {
+      setResult("Please enter a message");
+      return;
+    }
 
     setIsSubmitting(true);
     setResult("");
@@ -45,32 +60,22 @@ export function RecaptchaV3Demo() {
     try {
       const token = await getV3Token();
 
-      const response = await fetch("/api/recaptcha/verify", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          version: "v3",
-          token,
-          action: actionName,
-        }),
+      const data = await submitDemoForm({
+        message,
+        token,
+        version: "v3",
+        action: actionName,
       });
 
-      const data = (await response.json()) as {
-        success: boolean;
-        message: string;
-        googleResult?: unknown;
-      };
-
       setResult(JSON.stringify(data, null, 2));
+      setMessage("");
     } catch (error) {
       console.error(error);
       setResult("Request failed");
     } finally {
       setIsSubmitting(false);
     }
-  }
+  };
 
   if (!siteKey) {
     return (
@@ -85,23 +90,31 @@ export function RecaptchaV3Demo() {
       <Script
         src={`https://www.google.com/recaptcha/api.js?render=${siteKey}`}
         strategy="afterInteractive"
-        onLoad={() => setScriptLoaded(true)}
+        onReady={() => setScriptLoaded(true)}
       />
 
       <form onSubmit={handleSubmit} className="flex max-w-xl flex-col gap-4">
         <h2 className="text-2xl font-semibold">reCAPTCHA v3 demo</h2>
 
         <p className="text-sm text-gray-600">
-          This example requests a score-based token in the background and sends
-          it to the server for verification.
+          Submit the form. reCAPTCHA v3 will validate the request in the
+          background.
         </p>
+
+        <input
+          type="text"
+          value={message}
+          onChange={(event) => setMessage(event.currentTarget.value)}
+          placeholder="Enter your message"
+          className="rounded border px-3 py-2"
+        />
 
         <button
           type="submit"
           disabled={isSubmitting || !scriptLoaded}
           className="w-fit rounded bg-black px-4 py-2 text-white disabled:opacity-50"
         >
-          {isSubmitting ? "Verifying..." : "Verify v3 token"}
+          {isSubmitting ? "Submitting..." : "Submit with v3"}
         </button>
 
         {result ? (
