@@ -1,11 +1,11 @@
 "use client";
 
 import Script from "next/script";
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { SubmitEvent, useEffect, useRef, useState } from "react";
 
 const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_V2_SITE_KEY ?? "";
 
-export function RecaptchaV2Demo() {
+export function RecaptchaV2CheckboxDemo() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<number | null>(null);
 
@@ -38,7 +38,7 @@ export function RecaptchaV2Demo() {
     });
   }, [scriptLoaded]);
 
-  async function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!token) {
