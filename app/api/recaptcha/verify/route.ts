@@ -23,7 +23,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (version !== "v2" && version !== "v3") {
+    if (
+      version !== "v2-checkbox" &&
+      version !== "v2-invisible" &&
+      version !== "v3"
+    ) {
       return NextResponse.json(
         { success: false, message: "invalid version" },
         { status: 400 },
@@ -31,6 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const remoteIp = getClientIp(request);
+
     const googleResult = await verifyRecaptchaToken({
       token,
       version,

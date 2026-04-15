@@ -15,7 +15,7 @@ export default function HomePage() {
             href="/recaptcha-v2-checkbox"
             className="rounded border px-4 py-2 hover:bg-gray-50"
           >
-            Open reCAPTCHA v2
+            Open reCAPTCHA v2 checkbox
           </Link>
 
           <Link

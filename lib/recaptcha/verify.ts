@@ -1,16 +1,36 @@
 import { GoogleVerifyResponse, RecaptchaVersion } from "./types";
 
 function getSecretKey(version: RecaptchaVersion): string {
-  const secret =
-    version === "v2"
-      ? process.env.RECAPTCHA_V2_SECRET_KEY
-      : process.env.RECAPTCHA_V3_SECRET_KEY;
+  switch (version) {
+    case "v2-checkbox": {
+      const secret = process.env.RECAPTCHA_V2_CHECKBOX_SECRET_KEY;
+      if (!secret) {
+        throw new Error("Missing RECAPTCHA_V2_CHECKBOX_SECRET_KEY");
+      }
+      return secret;
+    }
 
-  if (!secret) {
-    throw new Error(`Missing secret key for reCAPTCHA ${version}`);
+    case "v2-invisible": {
+      const secret = process.env.RECAPTCHA_V2_INVISIBLE_SECRET_KEY;
+      if (!secret) {
+        throw new Error("Missing RECAPTCHA_V2_INVISIBLE_SECRET_KEY");
+      }
+      return secret;
+    }
+
+    case "v3": {
+      const secret = process.env.RECAPTCHA_V3_SECRET_KEY;
+      if (!secret) {
+        throw new Error("Missing RECAPTCHA_V3_SECRET_KEY");
+      }
+      return secret;
+    }
+
+    default:
+      throw new Error(
+        `Unsupported reCAPTCHA version: ${version satisfies never}`,
+      );
   }
-
-  return secret;
 }
 
 export async function verifyRecaptchaToken(params: {
@@ -19,7 +39,6 @@ export async function verifyRecaptchaToken(params: {
   remoteIp?: string | null;
 }) {
   const { token, version, remoteIp } = params;
-
   const secret = getSecretKey(version);
 
   const body = new URLSearchParams({
@@ -47,6 +66,5 @@ export async function verifyRecaptchaToken(params: {
     throw new Error(`Google verify request failed with ${response.status}`);
   }
 
-  const data = (await response.json()) as GoogleVerifyResponse;
-  return data;
+  return (await response.json()) as GoogleVerifyResponse;
 }

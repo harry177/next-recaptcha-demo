@@ -1,4 +1,4 @@
-export type RecaptchaVersion = "v2" | "v3";
+export type RecaptchaVersion = "v2-checkbox" | "v2-invisible" | "v3";
 
 export interface VerifyRequestBody {
   token: string;

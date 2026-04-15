@@ -1,9 +1,9 @@
 "use client";
 
 import Script from "next/script";
-import { SubmitEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_V2_SITE_KEY ?? "";
+const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_V2_INVISIBLE_SITE_KEY ?? "";
 
 export function RecaptchaV2InvisibleDemo() {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -23,57 +23,80 @@ export function RecaptchaV2InvisibleDemo() {
       return;
     }
 
-    widgetIdRef.current = window.grecaptcha.render(containerRef.current, {
-      sitekey: siteKey,
-      size: "invisible",
-      callback: async (token: string) => {
-        if (!submitRequestedRef.current) return;
+    window.grecaptcha.ready(() => {
+      if (!containerRef.current || !window.grecaptcha) {
+        return;
+      }
 
-        setIsSubmitting(true);
-        setResult("");
+      if (widgetIdRef.current !== null) {
+        return;
+      }
 
-        try {
-          const response = await fetch("/api/recaptcha/verify", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              version: "v2",
-              token,
-            }),
-          });
+      if (typeof window.grecaptcha.render !== "function") {
+        console.error("grecaptcha.render is unavailable", window.grecaptcha);
+        setResult("grecaptcha.render is unavailable");
+        return;
+      }
 
-          const data = (await response.json()) as {
-            success: boolean;
-            message: string;
-            googleResult?: unknown;
-          };
+      widgetIdRef.current = window.grecaptcha.render(containerRef.current, {
+        sitekey: siteKey,
+        size: "invisible",
+        callback: async (token: string) => {
+          if (!submitRequestedRef.current) {
+            return;
+          }
 
-          setResult(JSON.stringify(data, null, 2));
-        } catch (error) {
-          console.error(error);
-          setResult("Request failed");
-        } finally {
+          setIsSubmitting(true);
+          setResult("");
+
+          try {
+            const response = await fetch("/api/recaptcha/verify", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                version: "v2-invisible",
+                token,
+              }),
+            });
+
+            const data = (await response.json()) as {
+              success: boolean;
+              message: string;
+              googleResult?: unknown;
+            };
+
+            setResult(JSON.stringify(data, null, 2));
+          } catch (error) {
+            console.error(error);
+            setResult("Request failed");
+          } finally {
+            submitRequestedRef.current = false;
+            setIsSubmitting(false);
+
+            if (
+              window.grecaptcha &&
+              typeof window.grecaptcha.reset === "function" &&
+              widgetIdRef.current !== null
+            ) {
+              window.grecaptcha.reset(widgetIdRef.current);
+            }
+          }
+        },
+        "expired-callback": () => {
+          submitRequestedRef.current = false;
+        },
+        "error-callback": () => {
           submitRequestedRef.current = false;
           setIsSubmitting(false);
-
-          if (window.grecaptcha && widgetIdRef.current !== null) {
-            window.grecaptcha.reset(widgetIdRef.current);
-          }
-        }
-      },
-      "expired-callback": () => {
-        submitRequestedRef.current = false;
-      },
-      "error-callback": () => {
-        submitRequestedRef.current = false;
-        setResult("Invisible reCAPTCHA widget error");
-      },
+          setResult("Invisible reCAPTCHA widget error");
+        },
+      });
     });
   }, [scriptLoaded]);
 
-  function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
+  const handleSubmit: React.SubmitEventHandler<HTMLFormElement> = (event) => {
     event.preventDefault();
 
     if (!window.grecaptcha || widgetIdRef.current === null) {
@@ -81,14 +104,26 @@ export function RecaptchaV2InvisibleDemo() {
       return;
     }
 
-    submitRequestedRef.current = true;
-    window.grecaptcha.execute(widgetIdRef.current);
-  }
+    window.grecaptcha.ready(() => {
+      if (!window.grecaptcha || widgetIdRef.current === null) {
+        setResult("reCAPTCHA is not ready yet");
+        return;
+      }
+
+      if (typeof window.grecaptcha.execute !== "function") {
+        setResult("grecaptcha.execute is unavailable");
+        return;
+      }
+
+      submitRequestedRef.current = true;
+      window.grecaptcha.execute(widgetIdRef.current);
+    });
+  };
 
   if (!siteKey) {
     return (
       <div className="rounded border border-red-300 bg-red-50 p-4 text-sm text-red-700">
-        Missing NEXT_PUBLIC_RECAPTCHA_V2_SITE_KEY
+        Missing NEXT_PUBLIC_RECAPTCHA_V2_INVISIBLE_SITE_KEY
       </div>
     );
   }
